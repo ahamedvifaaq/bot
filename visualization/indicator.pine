@@ -1,0 +1,54 @@
+//@version=5
+indicator("Institutional Liquidity & Order Blocks", overlay=true, max_boxes_count=50, max_lines_count=50)
+
+// --- Settings ---
+swingLength = input.int(5, "Swing Length")
+fvgThreshold = input.float(0.0, "Min FVG Size (%)")
+
+// --- Swings ---
+var float swingHigh = na
+var float swingLow = na
+
+highestHigh = ta.highest(high, swingLength * 2 + 1)
+lowestLow = ta.lowest(low, swingLength * 2 + 1)
+
+isSwingHigh = high[swingLength] == highestHigh
+isSwingLow = low[swingLength] == lowestLow
+
+if isSwingHigh
+    swingHigh := high[swingLength]
+if isSwingLow
+    swingLow := low[swingLength]
+
+// Plot small dots for swings
+plotshape(isSwingHigh, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny, offset=-swingLength)
+plotshape(isSwingLow, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny, offset=-swingLength)
+
+// --- Fair Value Gaps (FVG) ---
+bullishFVG = low > high[2]
+bearishFVG = high < low[2]
+
+if bullishFVG
+    box.new(bar_index[2], low, bar_index, high[2], bgcolor=color.new(color.green, 85), border_color=color.new(color.green, 50))
+    
+if bearishFVG
+    box.new(bar_index[2], low[2], bar_index, high, bgcolor=color.new(color.red, 85), border_color=color.new(color.red, 50))
+
+// --- Mock ML Signal Display (For visual demo) ---
+// Since pine script can't run ML efficiently natively, we proxy the logic:
+ema200 = ta.ema(close, 200)
+isUpTrend = close > ema200
+isDownTrend = close < ema200
+
+// Rejection Pinbar logic
+bodySize = math.abs(close - open)
+totalLength = high - low
+lowerWick = math.min(open, close) - low
+upperWick = high - math.max(open, close)
+
+bullishRejection = lowerWick > bodySize * 2 and isUpTrend
+bearishRejection = upperWick > bodySize * 2 and isDownTrend
+
+plotshape(bullishFVG and bullishRejection, title="Buy Signal", style=shape.labelup, location=location.belowbar, color=color.new(color.green, 0), text="BUY", textcolor=color.white)
+plotshape(bearishFVG and bearishRejection, title="Sell Signal", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="SELL", textcolor=color.white)
+
